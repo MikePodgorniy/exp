@@ -91,7 +91,9 @@ export default class AndroidBuilder extends BaseBuilder {
       credentialMetadata
     );
 
-    if (this.options.clearCredentials || !credentials) {
+    if (this.options.useCi) {
+      await this.collectAndValidateCredentialsFromCI(credentialMetadata);
+    } else if (this.options.clearCredentials || !credentials) {
       console.log('');
       const questions = [
         {
@@ -177,5 +179,22 @@ export default class AndroidBuilder extends BaseBuilder {
         await Credentials.updateCredentialsForPlatform('android', credentials, credentialMetadata);
       }
     }
+  }
+
+  async collectAndValidateCredentialsFromCI(credentialMetadata) {
+    const creds = {
+      keystorePath: process.env.EXP_ANDROID_KEYSTORE_PATH,
+      keystoreAlias: process.env.EXP_ANDROID_KEYSTORE_ALIAS,
+      keystorePassword: process.env.EXP_ANDROID_STORE_PASSWORD,
+      keyPassword: process.env.EXP_ANDROID_KEY_PASSWORD,
+      uploadKeystore: false
+    };
+    
+    const credentials: AndroidCredentials = {
+      ...creds,
+      keystore: (await fs.readFile(creds.keystorePath)).toString('base64'),
+    };
+    await Credentials.updateCredentialsForPlatform('android', credentials, credentialMetadata);
+    
   }
 }

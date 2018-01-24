@@ -174,6 +174,24 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
     await this.build(publishedExpIds, 'ios');
   }
 
+  async runningAsCI(credsStarter, credsMetadata) {
+    const creds = {
+      certP12: process.env.EXP_DIST_CERTIFICATE_PATH,
+      certPassword: process.env.EXP_DIST_CERTIFICATE_PASSWORD,
+      pushP12: process.env.EXP_PUSH_CERTIFICATE_PATH,
+      pushPassword: process.env.EXP_PUSH_CERTIFICATE_PASSWORD,
+      provisioningProfile: process.env.EXP_PROVIONING_PROFILE_PATH,
+    };
+
+    this._copyOverAsString(credsStarter, {
+      ...creds,
+      provisioningProfile: (await fs.readFile(creds.provisioningProfile)).toString('base64'),
+      certP12: (await fs.readFile(creds.certP12)).toString('base64'),
+      pushP12: (await fs.readFile(creds.pushP12)).toString('base64'),
+      teamId: creds.teamId,
+    });
+  }
+
   async runningAsExpert(credsStarter) {
     log(expertPrompt);
     for (const choice of ['distCert', 'pushCert', 'provisioningProfile']) {
@@ -351,8 +369,12 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
     } else {
       credsStarter = {};
     }
-
-    if (clientHasAllNeededCreds === false) {
+    
+    if (this.options.useCi) {
+      await this.runningAsCI(credsStarter, credsMetadata);
+      this._areCredsMissing(credsStarter);
+      await Credentials.updateCredentialsForPlatform('ios', credsStarter, credsMetadata);
+    } else if (clientHasAllNeededCreds === false) {
       // We just keep mutating the creds object.
       const strategy = await inquirer.prompt(runAsExpertQuestion);
       const appleCredentials = await this._validateCredsEnsureAppExists(
