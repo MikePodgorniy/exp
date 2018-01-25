@@ -176,6 +176,7 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
 
   async runningAsCI(credsStarter, credsMetadata) {
     const creds = {
+      teamId: process.env.EXP_APPLE_TEAM_ID,
       certP12: process.env.EXP_DIST_CERTIFICATE_PATH,
       certPassword: process.env.EXP_DIST_CERTIFICATE_PASSWORD,
       pushP12: process.env.EXP_PUSH_CERTIFICATE_PATH,
@@ -188,7 +189,6 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
       provisioningProfile: (await fs.readFile(creds.provisioningProfile)).toString('base64'),
       certP12: (await fs.readFile(creds.certP12)).toString('base64'),
       pushP12: (await fs.readFile(creds.pushP12)).toString('base64'),
-      teamId: creds.teamId,
     });
   }
 
@@ -374,6 +374,7 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
       await this.runningAsCI(credsStarter, credsMetadata);
       this._areCredsMissing(credsStarter);
       await Credentials.updateCredentialsForPlatform('ios', credsStarter, credsMetadata);
+      log.warn(`Encrypted ${[...OBLIGATORY_CREDS_KEYS.keys()]} and saved to expo servers`);
     } else if (clientHasAllNeededCreds === false) {
       // We just keep mutating the creds object.
       const strategy = await inquirer.prompt(runAsExpertQuestion);
