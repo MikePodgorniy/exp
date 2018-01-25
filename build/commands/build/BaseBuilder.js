@@ -292,36 +292,73 @@ var BaseBuilder = function () {
       return checkStatus;
     }()
   }, {
-    key: '_shouldPublish',
+    key: 'ensureReleaseExists',
     value: function () {
-      var _ref5 = (0, (_asyncToGenerator2 || _load_asyncToGenerator()).default)( /*#__PURE__*/(_regenerator || _load_regenerator()).default.mark(function _callee4() {
-        var _ref6, shouldPublish;
+      var _ref5 = (0, (_asyncToGenerator2 || _load_asyncToGenerator()).default)( /*#__PURE__*/(_regenerator || _load_regenerator()).default.mark(function _callee4(platform) {
+        var _ref6, ids, url, err, release;
 
         return (_regenerator || _load_regenerator()).default.wrap(function _callee4$(_context4) {
           while (1) {
             switch (_context4.prev = _context4.next) {
               case 0:
                 if (!this.options.publish) {
-                  _context4.next = 2;
+                  _context4.next = 16;
                   break;
                 }
 
-                return _context4.abrupt('return', true);
+                _context4.next = 3;
+                return (0, (_publish || _load_publish()).action)(this.projectDir, {
+                  releaseChannel: this.options.releaseChannel,
+                  platform: platform
+                });
 
-              case 2:
-                _context4.next = 4;
-                return (_inquirer || _load_inquirer()).default.prompt([{
-                  name: 'shouldPublish',
-                  type: 'confirm',
-                  message: 'No existing releases found. Would you like to publish your app now?'
-                }]);
-
-              case 4:
+              case 3:
                 _ref6 = _context4.sent;
-                shouldPublish = _ref6.shouldPublish;
-                return _context4.abrupt('return', shouldPublish);
+                ids = _ref6.ids;
+                url = _ref6.url;
+                err = _ref6.err;
 
-              case 7:
+                if (!err) {
+                  _context4.next = 11;
+                  break;
+                }
+
+                throw new (_BuildError || _load_BuildError()).default('No url was returned from publish. Please try again.\n' + err);
+
+              case 11:
+                if (!(!url || url === '')) {
+                  _context4.next = 13;
+                  break;
+                }
+
+                throw new (_BuildError || _load_BuildError()).default('No url was returned from publish. Please try again.');
+
+              case 13:
+                return _context4.abrupt('return', ids);
+
+              case 16:
+                (0, (_log || _load_log()).default)('Looking for releases...');
+                _context4.next = 19;
+                return (_xdl || _load_xdl()).Project.getLatestReleaseAsync(this.projectDir, {
+                  releaseChannel: this.options.releaseChannel,
+                  platform: platform
+                });
+
+              case 19:
+                release = _context4.sent;
+
+                if (release) {
+                  _context4.next = 22;
+                  break;
+                }
+
+                throw new (_BuildError || _load_BuildError()).default('No releases found. Please create one using `exp publish` first.');
+
+              case 22:
+                (0, (_log || _load_log()).default)('Using existing release on channel "' + release.channel + '":\n  publicationId: ' + release.publicationId + '\n  publishedTime: ' + release.publishedTime);
+                return _context4.abrupt('return', [release.publicationId]);
+
+              case 24:
               case 'end':
                 return _context4.stop();
             }
@@ -329,98 +366,8 @@ var BaseBuilder = function () {
         }, _callee4, this);
       }));
 
-      function _shouldPublish() {
-        return _ref5.apply(this, arguments);
-      }
-
-      return _shouldPublish;
-    }()
-  }, {
-    key: 'ensureReleaseExists',
-    value: function () {
-      var _ref7 = (0, (_asyncToGenerator2 || _load_asyncToGenerator()).default)( /*#__PURE__*/(_regenerator || _load_regenerator()).default.mark(function _callee5(platform) {
-        var release, _ref8, ids, url, err;
-
-        return (_regenerator || _load_regenerator()).default.wrap(function _callee5$(_context5) {
-          while (1) {
-            switch (_context5.prev = _context5.next) {
-              case 0:
-                if (this.options.publish) {
-                  _context5.next = 8;
-                  break;
-                }
-
-                (0, (_log || _load_log()).default)('Looking for releases...');
-                _context5.next = 4;
-                return (_xdl || _load_xdl()).Project.getLatestReleaseAsync(this.projectDir, {
-                  releaseChannel: this.options.releaseChannel,
-                  platform: platform
-                });
-
-              case 4:
-                release = _context5.sent;
-
-                if (!release) {
-                  _context5.next = 8;
-                  break;
-                }
-
-                (0, (_log || _load_log()).default)('Using existing release on channel "' + release.channel + '":\n  publicationId: ' + release.publicationId + '\n  publishedTime: ' + release.publishedTime);
-                return _context5.abrupt('return', [release.publicationId]);
-
-              case 8:
-                _context5.next = 10;
-                return this._shouldPublish();
-
-              case 10:
-                if (!_context5.sent) {
-                  _context5.next = 26;
-                  break;
-                }
-
-                _context5.next = 13;
-                return (0, (_publish || _load_publish()).action)(this.projectDir, {
-                  releaseChannel: this.options.releaseChannel,
-                  platform: platform
-                });
-
-              case 13:
-                _ref8 = _context5.sent;
-                ids = _ref8.ids;
-                url = _ref8.url;
-                err = _ref8.err;
-
-                if (!err) {
-                  _context5.next = 21;
-                  break;
-                }
-
-                throw new (_BuildError || _load_BuildError()).default('No url was returned from publish. Please try again.\n' + err);
-
-              case 21:
-                if (!(!url || url === '')) {
-                  _context5.next = 23;
-                  break;
-                }
-
-                throw new (_BuildError || _load_BuildError()).default('No url was returned from publish. Please try again.');
-
-              case 23:
-                return _context5.abrupt('return', ids);
-
-              case 26:
-                throw new (_BuildError || _load_BuildError()).default('No releases found. Please create one using `exp publish` first.');
-
-              case 27:
-              case 'end':
-                return _context5.stop();
-            }
-          }
-        }, _callee5, this);
-      }));
-
       function ensureReleaseExists(_x2) {
-        return _ref7.apply(this, arguments);
+        return _ref5.apply(this, arguments);
       }
 
       return ensureReleaseExists;
@@ -428,11 +375,11 @@ var BaseBuilder = function () {
   }, {
     key: 'build',
     value: function () {
-      var _ref9 = (0, (_asyncToGenerator2 || _load_asyncToGenerator()).default)( /*#__PURE__*/(_regenerator || _load_regenerator()).default.mark(function _callee6(expIds, platform) {
+      var _ref7 = (0, (_asyncToGenerator2 || _load_asyncToGenerator()).default)( /*#__PURE__*/(_regenerator || _load_regenerator()).default.mark(function _callee5(expIds, platform) {
         var opts, buildResp, ipaUrl, apkUrl, buildErr;
-        return (_regenerator || _load_regenerator()).default.wrap(function _callee6$(_context6) {
+        return (_regenerator || _load_regenerator()).default.wrap(function _callee5$(_context5) {
           while (1) {
-            switch (_context6.prev = _context6.next) {
+            switch (_context5.prev = _context5.next) {
               case 0:
                 (0, (_log || _load_log()).default)('Building...');
 
@@ -451,14 +398,14 @@ var BaseBuilder = function () {
                 }
 
                 // call out to build api here with url
-                _context6.next = 5;
+                _context5.next = 5;
                 return (_xdl || _load_xdl()).Project.buildAsync(this.projectDir, opts);
 
               case 5:
-                buildResp = _context6.sent;
+                buildResp = _context5.sent;
 
                 if (!this.options.wait) {
-                  _context6.next = 19;
+                  _context5.next = 19;
                   break;
                 }
 
@@ -467,7 +414,7 @@ var BaseBuilder = function () {
                 // FIXME(perry) this is duplicate code to the checkStatus function
 
                 if (!buildErr) {
-                  _context6.next = 12;
+                  _context5.next = 12;
                   break;
                 }
 
@@ -475,7 +422,7 @@ var BaseBuilder = function () {
 
               case 12:
                 if (!(!ipaUrl || ipaUrl === '' || !apkUrl || apkUrl === '')) {
-                  _context6.next = 14;
+                  _context5.next = 14;
                   break;
                 }
 
@@ -487,7 +434,7 @@ var BaseBuilder = function () {
                 (0, (_log || _load_log()).default)('APK Url: ' + apkUrl);
 
                 (0, (_log || _load_log()).default)('Successfully built standalone app!');
-                _context6.next = 22;
+                _context5.next = 22;
                 break;
 
               case 19:
@@ -501,14 +448,14 @@ var BaseBuilder = function () {
 
               case 22:
               case 'end':
-                return _context6.stop();
+                return _context5.stop();
             }
           }
-        }, _callee6, this);
+        }, _callee5, this);
       }));
 
       function build(_x3, _x4) {
-        return _ref9.apply(this, arguments);
+        return _ref7.apply(this, arguments);
       }
 
       return build;

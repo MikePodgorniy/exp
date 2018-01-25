@@ -49,7 +49,7 @@ function _load_log() {
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 exports.default = function (program) {
-  program.command('build:ios [project-dir]').alias('bi').option('-c, --clear-credentials', 'Clear stored credentials.').option('-t --type <build>', 'Type of build: [archive|simulator].', /^(archive|simulator)$/i).option('-f, --local-auth', 'Turn on local auth flow').option('--expert-auth', "Don't log in to Apple, provide all of the files needed to build.").option('--release-channel <channel-name>', 'Pull from specified release channel.', 'default').option('--publish', 'Publish the project before building.').option('--use-ci', 'CI Credentials store in env').description('Build a standalone IPA for your project, signed and ready for submission to the Apple App Store.').allowNonInteractive().asyncActionProjectDir(function (projectDir, options) {
+  program.command('build:ios [project-dir]').alias('bi').option('-c, --clear-credentials', 'Clear stored credentials.').option('-t --type <build>', 'Type of build: [archive|simulator].', /^(archive|simulator)$/i).option('-f, --local-auth', 'Turn on local auth flow').option('--expert-auth', "Don't log in to Apple, provide all of the files needed to build.").option('--release-channel <channel-name>', 'Pull from specified release channel.', 'default').option('--no-publish', 'Disable automatic publishing before building.').option('--use-ci', 'CI Credentials store in env').description('Build a standalone IPA for your project, signed and ready for submission to the Apple App Store.').allowNonInteractive().asyncActionProjectDir(function (projectDir, options) {
     if (options.localAuth || options.expertAuth) {
       (_log || _load_log()).default.warn('DEPRECATED: --local-auth and --expert-auth are no-ops now, will be removed in future');
     }
@@ -66,7 +66,7 @@ exports.default = function (program) {
     return iosBuilder.command();
   });
 
-  program.command('build:android [project-dir]').alias('ba').option('-c, --clear-credentials', 'Clear stored credentials.').option('--release-channel <channel-name>', 'Pull from specified release channel.', 'default').option('--publish', 'Publish the project before building.').option('--use-ci', 'CI Credentials store in env').description('Build a standalone APK for your project, signed and ready for submission to the Google Play Store.').allowNonInteractive().asyncActionProjectDir(function (projectDir, options) {
+  program.command('build:android [project-dir]').alias('ba').option('-c, --clear-credentials', 'Clear stored credentials.').option('--release-channel <channel-name>', 'Pull from specified release channel.', 'default').option('--no-publish', 'Disable automatic publishing before building.').option('--use-ci', 'CI Credentials store in env').description('Build a standalone APK for your project, signed and ready for submission to the Google Play Store.').allowNonInteractive().asyncActionProjectDir(function (projectDir, options) {
     var channelRe = new RegExp(/^[a-z\d][a-z\d._-]*$/);
     if (!channelRe.test(options.releaseChannel)) {
       (_log || _load_log()).default.error('Release channel name can only contain lowercase letters, numbers and special characters . _ and -');

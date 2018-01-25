@@ -4,16 +4,16 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _toConsumableArray2;
-
-function _load_toConsumableArray() {
-  return _toConsumableArray2 = _interopRequireDefault(require('babel-runtime/helpers/toConsumableArray'));
-}
-
 var _objectWithoutProperties2;
 
 function _load_objectWithoutProperties() {
   return _objectWithoutProperties2 = _interopRequireDefault(require('babel-runtime/helpers/objectWithoutProperties'));
+}
+
+var _toConsumableArray2;
+
+function _load_toConsumableArray() {
+  return _toConsumableArray2 = _interopRequireDefault(require('babel-runtime/helpers/toConsumableArray'));
 }
 
 var _getIterator2;
@@ -363,6 +363,7 @@ var IOSBuilder = function (_BaseBuilder) {
             switch (_context2.prev = _context2.next) {
               case 0:
                 creds = {
+                  teamId: process.env.EXP_APPLE_TEAM_ID,
                   certP12: process.env.EXP_DIST_CERTIFICATE_PATH,
                   certPassword: process.env.EXP_DIST_CERTIFICATE_PASSWORD,
                   pushP12: process.env.EXP_PUSH_CERTIFICATE_PATH,
@@ -389,18 +390,16 @@ var IOSBuilder = function (_BaseBuilder) {
 
               case 14:
                 _context2.t7 = _context2.sent.toString('base64');
-                _context2.t8 = creds.teamId;
-                _context2.t9 = {
+                _context2.t8 = {
                   provisioningProfile: _context2.t5,
                   certP12: _context2.t6,
-                  pushP12: _context2.t7,
-                  teamId: _context2.t8
+                  pushP12: _context2.t7
                 };
-                _context2.t10 = (0, _context2.t2)(_context2.t3, _context2.t4, _context2.t9);
+                _context2.t9 = (0, _context2.t2)(_context2.t3, _context2.t4, _context2.t8);
 
-                _context2.t0._copyOverAsString.call(_context2.t0, _context2.t1, _context2.t10);
+                _context2.t0._copyOverAsString.call(_context2.t0, _context2.t1, _context2.t9);
 
-              case 19:
+              case 18:
               case 'end':
                 return _context2.stop();
             }
@@ -944,7 +943,7 @@ var IOSBuilder = function (_BaseBuilder) {
                 }
 
                 if (!this.options.useCi) {
-                  _context10.next = 13;
+                  _context10.next = 14;
                   break;
                 }
 
@@ -957,61 +956,62 @@ var IOSBuilder = function (_BaseBuilder) {
                 return (_xdl || _load_xdl()).Credentials.updateCredentialsForPlatform('ios', credsStarter, credsMetadata);
 
               case 11:
-                _context10.next = 36;
+                (_log || _load_log()).default.warn('Encrypted ' + [].concat((0, (_toConsumableArray2 || _load_toConsumableArray()).default)(OBLIGATORY_CREDS_KEYS.keys())) + ' and saved to expo servers');
+                _context10.next = 37;
                 break;
 
-              case 13:
+              case 14:
                 if (!(clientHasAllNeededCreds === false)) {
-                  _context10.next = 35;
+                  _context10.next = 36;
                   break;
                 }
 
-                _context10.next = 16;
+                _context10.next = 17;
                 return (_inquirer || _load_inquirer()).default.prompt(runAsExpertQuestion);
 
-              case 16:
+              case 17:
                 strategy = _context10.sent;
-                _context10.next = 19;
+                _context10.next = 20;
                 return this._validateCredsEnsureAppExists(credsStarter, credsMetadata, !strategy.isExpoManaged);
 
-              case 19:
+              case 20:
                 appleCredentials = _context10.sent;
 
                 if (!strategy.isExpoManaged) {
-                  _context10.next = 25;
+                  _context10.next = 26;
                   break;
                 }
 
-                _context10.next = 23;
+                _context10.next = 24;
                 return this.runningAsExpoManaged(appleCredentials, credsStarter, credsMetadata);
 
-              case 23:
-                _context10.next = 27;
+              case 24:
+                _context10.next = 28;
                 break;
 
-              case 25:
-                _context10.next = 27;
+              case 26:
+                _context10.next = 28;
                 return this.runningAsExpert(credsStarter);
 
-              case 27:
+              case 28:
                 _credsStarter = credsStarter, result = _credsStarter.result, creds = (0, (_objectWithoutProperties2 || _load_objectWithoutProperties()).default)(_credsStarter, ['result']);
 
                 if ((_auth || _load_auth()).DEBUG) {
                   console.log(credsStarter);
                 }
                 this._areCredsMissing(creds);
-                _context10.next = 32;
+                _context10.next = 33;
                 return (_xdl || _load_xdl()).Credentials.updateCredentialsForPlatform('ios', creds, credsMetadata);
 
-              case 32:
+              case 33:
                 (_log || _load_log()).default.warn('Encrypted ' + [].concat((0, (_toConsumableArray2 || _load_toConsumableArray()).default)(OBLIGATORY_CREDS_KEYS.keys())) + ' and saved to expo servers');
-                _context10.next = 36;
+                _context10.next = 37;
                 break;
 
-              case 35:
+              case 36:
                 (0, (_log || _load_log()).default)('Using existing credentials for this build');
 
-              case 36:
+              case 37:
               case 'end':
                 return _context10.stop();
             }

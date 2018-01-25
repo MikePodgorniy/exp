@@ -122,14 +122,14 @@ var validateCredentialsProduceTeamId = exports.validateCredentialsProduceTeamId 
 
 var prepareLocalAuth = exports.prepareLocalAuth = function () {
   var _ref7 = (0, (_asyncToGenerator2 || _load_asyncToGenerator()).default)( /*#__PURE__*/(_regenerator || _load_regenerator()).default.mark(function _callee5() {
-    var _release$match, _release$match2, version;
+    var _release$match, _release$match2, version, _userInfo, username;
 
     return (_regenerator || _load_regenerator()).default.wrap(function _callee5$(_context5) {
       while (1) {
         switch (_context5.prev = _context5.next) {
           case 0:
             if (!(process.platform === 'win32')) {
-              _context5.next = 13;
+              _context5.next = 15;
               break;
             }
 
@@ -143,27 +143,33 @@ var prepareLocalAuth = exports.prepareLocalAuth = function () {
             throw new Error('Must be on at least Windows version 10 for WSL support to work');
 
           case 4:
-            _context5.prev = 4;
-            _context5.next = 7;
+            _userInfo = (0, _os.userInfo)(), username = _userInfo.username;
+
+            if (username && username.split(' ').length !== 1) {
+              (_log || _load_log()).default.warn('Your username should not have empty space in it, exp might fail');
+            }
+            // Does bash.exe exist?
+            _context5.prev = 6;
+            _context5.next = 9;
             return (_fsExtra || _load_fsExtra()).default.access(WSL_BASH, (_fsExtra || _load_fsExtra()).default.constants.F_OK);
 
-          case 7:
-            _context5.next = 13;
+          case 9:
+            _context5.next = 15;
             break;
 
-          case 9:
-            _context5.prev = 9;
-            _context5.t0 = _context5['catch'](4);
+          case 11:
+            _context5.prev = 11;
+            _context5.t0 = _context5['catch'](6);
 
             (_log || _load_log()).default.warn(ENABLE_WSL);
             throw _context5.t0;
 
-          case 13:
+          case 15:
           case 'end':
             return _context5.stop();
         }
       }
-    }, _callee5, this, [[4, 9]]);
+    }, _callee5, this, [[6, 11]]);
   }));
 
   return function prepareLocalAuth() {
@@ -173,22 +179,26 @@ var prepareLocalAuth = exports.prepareLocalAuth = function () {
 
 var spawnAndCollectJSONOutputAsync = function () {
   var _ref8 = (0, (_asyncToGenerator2 || _load_asyncToGenerator()).default)( /*#__PURE__*/(_regenerator || _load_regenerator()).default.mark(function _callee6(program, args) {
+    var prgm, cmd;
     return (_regenerator || _load_regenerator()).default.wrap(function _callee6$(_context6) {
       while (1) {
         switch (_context6.prev = _context6.next) {
           case 0:
+            prgm = program;
+            cmd = args;
             return _context6.abrupt('return', (_promise || _load_promise()).default.race([new (_promise || _load_promise()).default(function (resolve, reject) {
               setTimeout(function () {
-                return reject(new Error(timeout_msg(program)));
+                return reject(new Error(timeout_msg(prgm, cmd)));
               }, TIMEOUT);
             }), new (_promise || _load_promise()).default(function (resolve, reject) {
               var jsonContent = [];
               try {
                 if (process.platform === 'win32') {
-                  var cmd = ['-c', WSL_ONLY_PATH + ' /mnt/c' + windowsToWSLPath(program) + ' ' + args.join(' ')];
-                  var child = _child_process.default.spawn(WSL_BASH, cmd, opts);
+                  prgm = WSL_BASH;
+                  cmd = ['-c', WSL_ONLY_PATH + ' /mnt/c' + windowsToWSLPath(program) + ' ' + args.join(' ')];
+                  var child = _child_process.default.spawn(prgm, cmd, opts);
                 } else {
-                  var child = _child_process.default.spawn(program, args, opts);
+                  var child = _child_process.default.spawn(prgm, cmd, opts);
                 }
               } catch (e) {
                 return reject(e);
@@ -214,7 +224,7 @@ var spawnAndCollectJSONOutputAsync = function () {
               });
             })]));
 
-          case 1:
+          case 3:
           case 'end':
             return _context6.stop();
         }
@@ -411,11 +421,11 @@ var windowsToWSLPath = function windowsToWSLPath(p) {
   var noSlashes = (0, (_slash || _load_slash()).default)(p);
   return noSlashes.slice(2, noSlashes.length);
 };
-var MINUTES = 3;
+var MINUTES = 10;
 var TIMEOUT = 60 * 1000 * MINUTES;
 
-var timeout_msg = function timeout_msg(prgm) {
-  return process.platform === 'win32' ? 'Took too long (limit is ' + MINUTES + ' minutes) to execute ' + prgm + '.\nIs your WSL working? in Powershell try: bash.exe -c \'uname\'' : 'Took too long (limit is ' + MINUTES + ' minutes) to execute ' + prgm;
+var timeout_msg = function timeout_msg(prgm, args) {
+  return process.platform === 'win32' ? 'Took too long (limit is ' + MINUTES + ' minutes) to execute ' + prgm + ' ' + args + '.\nIs your WSL working? in Powershell try: bash.exe -c \'uname\'' : 'Took too long (limit is ' + MINUTES + ' minutes) to execute ' + prgm + ' ' + args;
 };
 
 var opts = { stdio: ['inherit', 'pipe', 'pipe'] };

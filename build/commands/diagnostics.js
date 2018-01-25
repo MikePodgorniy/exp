@@ -25,23 +25,26 @@ var action = function () {
         switch (_context.prev = _context.next) {
           case 0:
             (0, (_log || _load_log()).default)('Generating diagnostics report...');
+            (0, (_log || _load_log()).default)('You can join our slack here: https://slack.expo.io/.');
+
+            (0, (_envinfo || _load_envinfo()).print)();
+
+            console.log((_chalk || _load_chalk()).default.underline('Diagnostics report:'));
             (_simpleSpinner || _load_simpleSpinner()).default.start();
-            _context.next = 4;
+            _context.next = 7;
             return (_xdl || _load_xdl()).Diagnostics.getDeviceInfoAsync({
               uploadLogs: true
             });
 
-          case 4:
+          case 7:
             _ref2 = _context.sent;
             url = _ref2.url;
 
             (_simpleSpinner || _load_simpleSpinner()).default.stop();
-
-            (0, (_log || _load_log()).default)('Please share this URL with the Expo team: ' + url + '.');
-            (0, (_log || _load_log()).default)('You can join our slack here: https://slack.expo.io/.');
+            console.log('  ' + url + '\n');
             (_log || _load_log()).default.raw(url);
 
-          case 10:
+          case 12:
           case 'end':
             return _context.stop();
         }
@@ -58,6 +61,18 @@ var _xdl;
 
 function _load_xdl() {
   return _xdl = require('xdl');
+}
+
+var _envinfo;
+
+function _load_envinfo() {
+  return _envinfo = require('envinfo');
+}
+
+var _chalk;
+
+function _load_chalk() {
+  return _chalk = _interopRequireDefault(require('chalk'));
 }
 
 var _simpleSpinner;
