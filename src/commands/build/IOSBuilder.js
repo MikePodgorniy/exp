@@ -146,13 +146,10 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
     // Clear credentials if they want to:
     if (this.options.clearCredentials) {
       await Credentials.removeCredentialsForPlatform('ios', credentialMetadata);
-      log.warn('Removed existing credentials');
+      log.warn('Removed existing credentials from expo servers');
     }
     if (this.options.type !== 'simulator') {
       try {
-        if (authFuncs.DEBUG) {
-          console.log(await authFuncs.doFastlaneActionsExist());
-        }
         await authFuncs.prepareLocalAuth();
         await this.runLocalAuth(credentialMetadata);
       } catch (e) {
@@ -262,28 +259,27 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
     this._copyOverAsString(credsStarter, checkAppExistenceAttempt);
   }
 
-  async produceProvisionProfile(appleCreds, credsMetadata, teamId, credsStarter) {
+  async produceProvisionProfile(appleCreds, credsMetadata, teamId, credsStarter, isEnterprise) {
     const produceProvisionProfileAttempt = await authFuncs.produceProvisionProfile(
       appleCreds,
       credsMetadata,
-      teamId
+      teamId,
+      isEnterprise
     );
     if (
       produceProvisionProfileAttempt.result === 'failure' &&
       produceProvisionProfileAttempt.reason.startsWith(authFuncs.MULTIPLE_PROFILES)
     ) {
-      log.warn(
-        'Consider logging into https://developer.apple.com and removing the existing provisioning profile'
-      );
+      log.warn(authFuncs.APPLE_ERRORS);
     }
     this._throwIfFailureWithReasonDump(produceProvisionProfileAttempt);
     this._copyOverAsString(credsStarter, produceProvisionProfileAttempt);
   }
 
-  async expoManagedResource(credsStarter, choice, appleCreds, teamId, credsMetadata) {
+  async expoManagedResource(credsStarter, choice, appleCreds, teamId, credsMetadata, isEnterprise) {
     switch (choice) {
       case 'distCert':
-        const produceCertAttempt = await authFuncs.produceCerts(appleCreds, teamId);
+        const produceCertAttempt = await authFuncs.produceCerts(appleCreds, teamId, isEnterprise);
         this._throwIfFailureWithReasonDump(produceCertAttempt);
         this._copyOverAsString(credsStarter, produceCertAttempt);
         break;
@@ -291,25 +287,99 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
         const producePushCertsAttempt = await authFuncs.producePushCerts(
           appleCreds,
           credsMetadata,
-          teamId
+          teamId,
+          isEnterprise
         );
         this._throwIfFailureWithReasonDump(producePushCertsAttempt);
         this._copyOverAsString(credsStarter, producePushCertsAttempt);
         break;
       case 'provisioningProfile':
-        await this.produceProvisionProfile(appleCreds, credsMetadata, teamId, credsStarter);
+        await this.produceProvisionProfile(
+          appleCreds,
+          credsMetadata,
+          teamId,
+          credsStarter,
+          isEnterprise
+        );
         break;
       default:
         throw new Error(`Unknown manage resource choice requested: ${choice}`);
     }
   }
 
-  async _validateCredsEnsureAppExists(credsStarter, credsMetadata, justTeamId) {
+  async _revokeHelper(appleCredentials, credsMetadata, teamId, isEnterprise, distOrPush) {
+    // Get back IDs that Spaceship knows how to revoke
+    const revokeWhat = await authFuncs.askWhichCertsToDump(
+      appleCredentials,
+      credsMetadata,
+      teamId,
+      distOrPush,
+      isEnterprise
+    );
+    if (revokeWhat.length !== 0) {
+      const revokeAttempt = await authFuncs.revokeCredentialsOnApple(
+        appleCredentials,
+        credsMetadata,
+        revokeWhat,
+        teamId
+      );
+      if (revokeAttempt.result === 'success') {
+        log(`Revoked ${revokeAttempt.revokeCount} existing certs on developer.apple.com`);
+      } else {
+        log.warn(`Could not revoke certs: ${revokeAttempt.reason}`);
+      }
+    }
+  }
+
+  async _handleRevokes(appleCredentials, credsStarter, credsMetadata, teamId, isEnterprise) {
+    const f = this._revokeHelper.bind(null, appleCredentials, credsMetadata, teamId, isEnterprise);
+    if (this.options.revokeAppleDistCerts) {
+      log.warn('ATTENTION: Revoking your Apple Distribution Certificates is permanent');
+      await f('distCert');
+    }
+
+    if (this.options.revokeApplePushCerts) {
+      log.warn('ATTENTION: Revoking your Apple Push Certificates is permanent');
+      await f('pushCert');
+    }
+
+    if (this.options.revokeAppleProvisioningProfile) {
+      await new Promise(r => setTimeout(() => r(), 400));
+      log.warn(
+        `ATTENTION: Revoking your Apple Provisioning Profile for ${
+          credsMetadata.bundleIdentifier
+        } is permanent`
+      );
+      const revokeAttempt = await authFuncs.revokeProvisioningProfile(
+        appleCredentials,
+        credsMetadata,
+        teamId
+      );
+      if (revokeAttempt.result === 'success') {
+        log.warn(revokeAttempt.msg);
+      } else {
+        log.warn(
+          `Could not revoke provisioning profile: ${revokeAttempt.reason} rawDump:${JSON.stringify(
+            revokeAttempt
+          )}`
+        );
+      }
+    }
+  }
+
+  async _validateCredsEnsureAppExists(credsStarter, credsMetadata, justTeamId, isEnterprise) {
     const appleCredentials = await this.askForAppleCreds(justTeamId);
     log('Validating Credentials...');
     const checkCredsAttempt = await authFuncs.validateCredentialsProduceTeamId(appleCredentials);
     this._throwIfFailureWithReasonDump(checkCredsAttempt);
     credsStarter.teamId = checkCredsAttempt.teamId;
+    await this._handleRevokes(
+      appleCredentials,
+      credsStarter,
+      credsMetadata,
+      checkCredsAttempt.teamId,
+      isEnterprise
+    );
     await this._ensureAppExists(
       appleCredentials,
       credsMetadata,
@@ -319,7 +389,7 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
     return appleCredentials;
   }
 
-  async runningAsExpoManaged(appleCredentials, credsStarter, credsMetadata) {
+  async runningAsExpoManaged(appleCredentials, credsStarter, credsMetadata, isEnterprise) {
     const expoManages = { ...(await inquirer.prompt(whatToOverride)), provisioningProfile: true };
     const spinner = ora('Running local authentication and producing required credentials').start();
     try {
@@ -332,7 +402,8 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
             choice,
             appleCredentials,
             credsStarter.teamId,
-            credsMetadata
+            credsMetadata,
+            isEnterprise
           );
         } else {
           spinner.stop();
@@ -369,7 +440,6 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
     } else {
       credsStarter = {};
     }
-    
     if (this.options.useCi) {
       await this.runningAsCI(credsStarter, credsMetadata);
       this._areCredsMissing(credsStarter);
@@ -378,20 +448,25 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
     } else if (clientHasAllNeededCreds === false) {
       // We just keep mutating the creds object.
       const strategy = await inquirer.prompt(runAsExpertQuestion);
+      const isEnterprise = this.options.appleEnterpriseAccount !== undefined;
+      credsStarter.enterpriseAccount = isEnterprise ? 'true' : 'false';
       const appleCredentials = await this._validateCredsEnsureAppExists(
         credsStarter,
         credsMetadata,
-        !strategy.isExpoManaged
+        !strategy.isExpoManaged,
+        isEnterprise
       );
       if (strategy.isExpoManaged) {
-        await this.runningAsExpoManaged(appleCredentials, credsStarter, credsMetadata);
+        await this.runningAsExpoManaged(
+          appleCredentials,
+          credsStarter,
+          credsMetadata,
+          isEnterprise
+        );
       } else {
         await this.runningAsExpert(credsStarter);
       }
       const { result, ...creds } = credsStarter;
-      if (authFuncs.DEBUG) {
-        console.log(credsStarter);
-      }
       this._areCredsMissing(creds);
       await Credentials.updateCredentialsForPlatform('ios', creds, credsMetadata);
       log.warn(`Encrypted ${[...OBLIGATORY_CREDS_KEYS.keys()]} and saved to expo servers`);
@@ -401,9 +476,6 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
   }
 
   _throwIfFailureWithReasonDump(replyAttempt) {
-    if (authFuncs.DEBUG) {
-      console.log(replyAttempt);
-    }
     if (replyAttempt.result === 'failure') {
       const { reason, rawDump } = replyAttempt;
       throw new Error(`Reason:${reason}, raw:${JSON.stringify(rawDump)}`);

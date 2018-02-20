@@ -12,10 +12,21 @@ export default (program: any) => {
   program
     .command('build:ios [project-dir]')
     .alias('bi')
-    .option('-c, --clear-credentials', 'Clear stored credentials.')
+    .option('-c, --clear-credentials', 'Clear credentials stored on expo servers')
+    .option('-e, --apple-enterprise-account', 'Run as Apple Enterprise account')
+    .option(
+      '--revoke-apple-dist-certs',
+      'Revoke distribution certs on developer.apple.com before attempting to make new certs, must use with -c'
+    )
+    .option(
+      '--revoke-apple-push-certs',
+      'Revoke push certs on developer.apple.com before attempting to make new certs, must use with -c'
+    )
+    .option(
+      '--revoke-apple-provisioning-profile',
+      'Revoke provisioning profile on developer.apple.com, must use with -c'
+    )
     .option('-t --type <build>', 'Type of build: [archive|simulator].', /^(archive|simulator)$/i)
-    .option('-f, --local-auth', 'Turn on local auth flow')
-    .option('--expert-auth', "Don't log in to Apple, provide all of the files needed to build.")
     .option('--release-channel <channel-name>', 'Pull from specified release channel.', 'default')
     .option('--no-publish', 'Disable automatic publishing before building.')
     .option('--use-ci', 'CI Credentials store in env')
@@ -24,11 +35,6 @@ export default (program: any) => {
     )
     .allowNonInteractive()
     .asyncActionProjectDir((projectDir, options) => {
-      if (options.localAuth || options.expertAuth) {
-        log.warn(
-          'DEPRECATED: --local-auth and --expert-auth are no-ops now, will be removed in future'
-        );
-      }
       let channelRe = new RegExp(/^[a-z\d][a-z\d._-]*$/);
       if (!channelRe.test(options.releaseChannel)) {
         log.error(

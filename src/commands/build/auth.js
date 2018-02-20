@@ -20,6 +20,15 @@ const WSL_ONLY_PATH = 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/s
 
 export const NO_BUNDLE_ID = 'App could not be found for bundle id';
 
+export const APPLE_ERRORS = `If you get errors about
+
+'Maximum number of certificates generated' or 'duplicate profiles'
+
+then consider using the flags --revoke-apple-dist-certs, --revoke-apple-push-certs,
+and --revoke-apple-provisioning-profile or go to developer.apple.com
+and revoke those credentials manually
+`;
+
 export const MULTIPLE_PROFILES = 'Multiple profiles found with the name';
 
 export const DEBUG = process.env.EXPO_DEBUG && process.env.EXPO_DEBUG === 'true';
@@ -29,6 +38,8 @@ Does not seem like WSL enabled on this machine. Download from the Windows app
 store a distribution of Linux, then in an admin powershell, please run:
 
 Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
+
+and run the new Linux installation at least once
 `;
 
 export const doesFileProvidedExist = async (printOut, p12Path) => {
@@ -60,6 +71,8 @@ function appStoreAction(creds, metadata, teamId, action) {
     teamId,
     metadata.bundleIdentifier,
     metadata.experienceName,
+    '[]',
+    'false',
   ];
   return spawnAndCollectJSONOutputAsync(FASTLANE.app_management, args);
 }
@@ -72,29 +85,32 @@ export function ensureAppIdLocally(creds, metadata, teamId) {
   return appStoreAction(creds, metadata, teamId, 'verify');
 }
 
-export function produceProvisionProfile(credentials, { bundleIdentifier }, teamId) {
+export function produceProvisionProfile(credentials, { bundleIdentifier }, teamId, isEnterprise) {
   return spawnAndCollectJSONOutputAsync(FASTLANE.fetch_new_provisioning_profile, [
     credentials.appleId,
     credentials.password,
     bundleIdentifier,
     teamId,
+    isEnterprise,
   ]);
 }
 
-export function producePushCerts(credentials, { bundleIdentifier }, teamId) {
+export function producePushCerts(credentials, { bundleIdentifier }, teamId, isEnterprise) {
   return spawnAndCollectJSONOutputAsync(FASTLANE.fetch_push_cert, [
     credentials.appleId,
     credentials.password,
     bundleIdentifier,
     teamId,
+    isEnterprise,
   ]);
 }
 
-export function produceCerts(credentials, teamId) {
+export function produceCerts(credentials, teamId, isEnterprise) {
   return spawnAndCollectJSONOutputAsync(FASTLANE.fetch_cert, [
     credentials.appleId,
     credentials.password,
     teamId,
+    isEnterprise,
   ]);
 }
 
@@ -106,9 +122,6 @@ export async function validateCredentialsProduceTeamId(creds) {
     FASTLANE.validate_apple_credentials,
     [creds.appleId, creds.password]
   );
-  if (DEBUG) {
-    console.log({ action: 'teams attempt retrieval', dump: getTeamsAttempt });
-  }
   if (getTeamsAttempt.result === 'failure') {
     const { reason, rawDump } = getTeamsAttempt;
     throw new Error(`Reason:${reason}, raw:${JSON.stringify(rawDump)}`);
@@ -140,22 +153,28 @@ const windowsToWSLPath = p => {
   const noSlashes = slash(p);
   return noSlashes.slice(2, noSlashes.length);
 };
+
 const MINUTES = 10;
+
 const TIMEOUT = 60 * 1000 * MINUTES;
 
 const timeout_msg = (prgm, args) =>
   process.platform === 'win32'
-    ? `Took too long (limit is ${MINUTES} minutes) to execute ${prgm} ${args}.
+    ? `Took too long (limit is ${MINUTES} minutes) to execute ${prgm} ${args.join(' ')}.
 Is your WSL working? in Powershell try: bash.exe -c 'uname'`
-    : `Took too long (limit is ${MINUTES} minutes) to execute ${prgm} ${args}`;
+    : `Took too long (limit is ${MINUTES} minutes) to execute ${prgm} ${args.join(' ')}`;
 
 const opts = { stdio: ['inherit', 'pipe', 'pipe'] };
 
 export async function prepareLocalAuth() {
+  if (DEBUG) {
+    log.warn(APPLE_ERRORS);
+  }
+
   if (process.platform === 'win32') {
     const [version] = release().match(/\d./);
     if (version !== '10') {
-      throw new Error('Must be on at least Windows version 10 for WSL support to work');
+      log.warn('Must be on at least Windows version 10 for WSL support to work');
     }
     const { username } = userInfo();
     if (username && username.split(' ').length !== 1) {
@@ -166,13 +185,97 @@ export async function prepareLocalAuth() {
       await fs.access(WSL_BASH, fs.constants.F_OK);
     } catch (e) {
       log.warn(ENABLE_WSL);
-      throw e;
     }
   }
 }
 
-const USER_PERMISSIONS_ERROR =
-  'You probably do not have user permissions for where exp is installed, consider changing permissions there';
+type appManagementAction =
+  | 'create'
+  | 'verify'
+  | 'revokeCerts'
+  | 'dumpDistCert'
+  | 'dumpPushCert'
+  | 'revokeProvisioningProfile';
+
+export async function revokeProvisioningProfile(creds, metadata, teamId) {
+  const args = [
+    ('revokeProvisioningProfile': appManagementAction),
+    creds.appleId,
+    creds.password,
+    teamId,
+    metadata.bundleIdentifier,
+    metadata.experienceName,
+    '[]',
+    'false',
+  ];
+  return spawnAndCollectJSONOutputAsync(FASTLANE.app_management, args);
+}
+
+export async function askWhichCertsToDump(creds, metadata, teamId, distOrPush, isEnterprise) {
+  const args = [
+    (distOrPush === 'distCert' && 'dumpDistCert') || (distOrPush === 'pushCert' && 'dumpPushCert'),
+    creds.appleId,
+    creds.password,
+    teamId,
+    metadata.bundleIdentifier,
+    metadata.experienceName,
+    '[]',
+    isEnterprise ? 'true' : 'false',
+  ];
+  const dumpExistingCertsAttempt = await spawnAndCollectJSONOutputAsync(
+    FASTLANE.app_management,
+    args
+  );
+  if (dumpExistingCertsAttempt.result === 'success') {
+    const { certs } = dumpExistingCertsAttempt;
+    const trimmedOneLiners = certs.map(s =>
+      s
+        .split('\n')
+        .map(i => i.trim().replace(',', ''))
+        .join(' ')
+    );
+    if (trimmedOneLiners.length === 0) {
+      log.warn('No certs on developer.apple.com available to revoke');
+      return [];
+    }
+    const { revokeTheseCerts } = await inquirer.prompt({
+      type: 'checkbox',
+      name: 'revokeTheseCerts',
+      message: `Which Certs to revoke?`,
+      choices: trimmedOneLiners,
+    });
+    const certIds = revokeTheseCerts
+      .map(s => trimmedOneLiners[trimmedOneLiners.indexOf(s)])
+      .map(s => s.split(' ')[1].split('=')[1])
+      .map(s => s.slice(1, s.length - 1));
+    return certIds;
+  } else {
+    log.warn(
+      `Unable to dump existing Apple Developer files: ${JSON.stringify(
+        dumpExistingCertsAttempt.reason
+      )}`
+    );
+    return [];
+  }
+}
+
+export async function revokeCredentialsOnApple(creds, metadata, ids, teamId) {
+  const args = [
+    ('revokeCerts': appManagementAction),
+    creds.appleId,
+    creds.password,
+    teamId,
+    metadata.bundleIdentifier,
+    metadata.experienceName,
+  ];
+  if (process.platform === 'win32') {
+    args.push(ids.length === 0 ? '[]' : `[${ids.map(i => `\\"${i}\\"`).join(',')}]`);
+  } else {
+    args.push(ids.length === 0 ? '[]' : `[${ids.map(i => `"${i}"`).join(',')}]`);
+  }
+
+  return spawnAndCollectJSONOutputAsync(FASTLANE.app_management, args);
+}
 
 async function spawnAndCollectJSONOutputAsync(program, args) {
   let prgm = program;
@@ -186,10 +289,14 @@ async function spawnAndCollectJSONOutputAsync(program, args) {
       try {
         if (process.platform === 'win32') {
           prgm = WSL_BASH;
-          cmd = ['-c', `${WSL_ONLY_PATH} /mnt/c${windowsToWSLPath(program)} ${args.join(' ')}`];
+          cmd = ['-c', `${WSL_ONLY_PATH} /mnt/c${windowsToWSLPath(program)} "${args.join(' ')}"`];
+          if (DEBUG) {
+            log.warn(`Running: bash.exe ${cmd.join(' ')}`);
+          }
           var child = child_process.spawn(prgm, cmd, opts);
         } else {
-          var child = child_process.spawn(prgm, cmd, opts);
+          const wrapped = [`${cmd.join(' ')}`];
+          var child = child_process.spawn(prgm, wrapped, opts);
         }
       } catch (e) {
         return reject(e);
@@ -198,17 +305,14 @@ async function spawnAndCollectJSONOutputAsync(program, args) {
       // This is where we get our replies back from the ruby code
       child.stderr.on('data', d => jsonContent.push(d));
       child.stdout.on('end', () => {
-        const reply = Buffer.concat(jsonContent).toString();
+        const rawDump = Buffer.concat(jsonContent).toString();
         try {
-          resolve(JSON.parse(reply));
+          resolve(JSON.parse(rawDump));
         } catch (e) {
           reject({
             result: 'failure',
-            reason:
-              reply.match(/Bundler::InstallError/) === null
-                ? 'Could not understand JSON reply from Ruby based local auth scripts'
-                : USER_PERMISSIONS_ERROR,
-            rawDump: reply,
+            reason: 'Could not understand JSON reply from Ruby based local auth scripts',
+            rawDump,
           });
         }
       });
