@@ -171,14 +171,25 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
     await this.build(publishedExpIds, 'ios');
   }
 
+  checkEnv() {
+    return (
+      process.env.APPLE_TEAM_ID &&
+      process.env.DIST_CERTIFICATE_PATH &&
+      process.env.DIST_CERTIFICATE_PASSWORD &&
+      process.env.PUSH_CERTIFICATE_PATH &&
+      process.env.PUSH_CERTIFICATE_PASSWORD &&
+      process.env.PROVISIONING_PROFILE_PATH
+    );
+  }
+
   async runningAsCI(credsStarter, credsMetadata) {
     const creds = {
-      teamId: process.env.EXP_APPLE_TEAM_ID,
-      certP12: process.env.EXP_DIST_CERTIFICATE_PATH,
-      certPassword: process.env.EXP_DIST_CERTIFICATE_PASSWORD,
-      pushP12: process.env.EXP_PUSH_CERTIFICATE_PATH,
-      pushPassword: process.env.EXP_PUSH_CERTIFICATE_PASSWORD,
-      provisioningProfile: process.env.EXP_PROVIONING_PROFILE_PATH,
+      teamId: process.env.APPLE_TEAM_ID,
+      certP12: process.env.DIST_CERTIFICATE_PATH,
+      certPassword: process.env.DIST_CERTIFICATE_PASSWORD,
+      pushP12: process.env.PUSH_CERTIFICATE_PATH,
+      pushPassword: process.env.PUSH_CERTIFICATE_PASSWORD,
+      provisioningProfile: process.env.PROVISIONING_PROFILE_PATH,
     };
 
     this._copyOverAsString(credsStarter, {
@@ -346,9 +357,7 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
     if (this.options.revokeAppleProvisioningProfile) {
       await new Promise(r => setTimeout(() => r(), 400));
       log.warn(
-        `ATTENTION: Revoking your Apple Provisioning Profile for ${
-          credsMetadata.bundleIdentifier
-        } is permanent`
+        `ATTENTION: Revoking your Apple Provisioning Profile for ${credsMetadata.bundleIdentifier} is permanent`
       );
       const revokeAttempt = await authFuncs.revokeProvisioningProfile(
         appleCredentials,
@@ -440,7 +449,7 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
     } else {
       credsStarter = {};
     }
-    if (this.options.useCi) {
+    if (this.checkEnv()) {
       await this.runningAsCI(credsStarter, credsMetadata);
       this._areCredsMissing(credsStarter);
       await Credentials.updateCredentialsForPlatform('ios', credsStarter, credsMetadata);

@@ -91,7 +91,7 @@ export default class AndroidBuilder extends BaseBuilder {
       credentialMetadata
     );
 
-    if (this.options.useCi) {
+    if (this.checkEnv()) {
       await this.collectAndValidateCredentialsFromCI(credentialMetadata);
     } else if (this.options.clearCredentials || !credentials) {
       console.log('');
@@ -181,12 +181,21 @@ export default class AndroidBuilder extends BaseBuilder {
     }
   }
 
+  checkEnv() {
+    return (
+      process.env.EXP_ANDROID_KEYSTORE_PATH &&
+      process.env.EXP_ANDROID_KEYSTORE_ALIAS &&
+      process.env.EXP_ANDROID_STORE_PASSWORD &&
+      process.env.EXP_ANDROID_KEY_PASSWORD
+    );
+  }
+
   async collectAndValidateCredentialsFromCI(credentialMetadata) {
     const creds = {
-      keystorePath: process.env.EXP_ANDROID_KEYSTORE_PATH,
-      keystoreAlias: process.env.EXP_ANDROID_KEYSTORE_ALIAS,
-      keystorePassword: process.env.EXP_ANDROID_STORE_PASSWORD,
-      keyPassword: process.env.EXP_ANDROID_KEY_PASSWORD,
+      keystorePath: process.env.ANDROID_KEYSTORE_PATH,
+      keystoreAlias: process.env.ANDROID_KEYSTORE_ALIAS,
+      keystorePassword: process.env.ANDROID_STORE_PASSWORD,
+      keyPassword: process.env.ANDROID_KEY_PASSWORD,
       uploadKeystore: false
     };
     
