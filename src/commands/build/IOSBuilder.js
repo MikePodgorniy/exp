@@ -173,23 +173,23 @@ See https://docs.expo.io/versions/latest/guides/building-standalone-apps.html`
 
   checkEnv() {
     return (
-      process.env.APPLE_TEAM_ID &&
-      process.env.DIST_CERTIFICATE_PATH &&
-      process.env.DIST_CERTIFICATE_PASSWORD &&
-      process.env.PUSH_CERTIFICATE_PATH &&
-      process.env.PUSH_CERTIFICATE_PASSWORD &&
-      process.env.PROVISIONING_PROFILE_PATH
+      this.options.teamId &&
+      this.options.distP12Path &&
+      process.env.EXPO_IOS_DIST_P12_PASSWORD &&
+      this.options.pushP12Path &&
+      process.env.EXPO_IOS_PUSH_P12_PASSWORD &&
+      this.options.provisioningProfilePath
     );
   }
 
   async runningAsCI(credsStarter, credsMetadata) {
     const creds = {
-      teamId: process.env.APPLE_TEAM_ID,
-      certP12: process.env.DIST_CERTIFICATE_PATH,
-      certPassword: process.env.DIST_CERTIFICATE_PASSWORD,
-      pushP12: process.env.PUSH_CERTIFICATE_PATH,
-      pushPassword: process.env.PUSH_CERTIFICATE_PASSWORD,
-      provisioningProfile: process.env.PROVISIONING_PROFILE_PATH,
+      teamId: this.options.teamId,
+      certP12: this.options.distP12Path,
+      certPassword: process.env.EXPO_IOS_DIST_P12_PASSWORD,
+      pushP12: this.options.pushP12Path,
+      pushPassword: process.env.EXPO_IOS_PUSH_P12_PASSWORD,
+      provisioningProfile: this.options.provisioningProfilePath,
     };
 
     this._copyOverAsString(credsStarter, {

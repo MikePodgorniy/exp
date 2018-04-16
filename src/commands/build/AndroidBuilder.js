@@ -183,27 +183,26 @@ export default class AndroidBuilder extends BaseBuilder {
 
   checkEnv() {
     return (
-      process.env.EXP_ANDROID_KEYSTORE_PATH &&
-      process.env.EXP_ANDROID_KEYSTORE_ALIAS &&
-      process.env.EXP_ANDROID_STORE_PASSWORD &&
-      process.env.EXP_ANDROID_KEY_PASSWORD
+      this.options.keystorePath &&
+      this.options.keystoreAlias &&
+      process.env.EXPO_ANDROID_KEYSTORE_PASSWORD &&
+      process.env.EXPO_ANDROID_KEY_PASSWORD
     );
   }
 
   async collectAndValidateCredentialsFromCI(credentialMetadata) {
     const creds = {
-      keystorePath: process.env.ANDROID_KEYSTORE_PATH,
-      keystoreAlias: process.env.ANDROID_KEYSTORE_ALIAS,
-      keystorePassword: process.env.ANDROID_STORE_PASSWORD,
-      keyPassword: process.env.ANDROID_KEY_PASSWORD,
-      uploadKeystore: false
+      keystorePath: this.options.keystorePath,
+      keystoreAlias: this.options.keystoreAlias,
+      keystorePassword: process.env.EXPO_ANDROID_KEYSTORE_PASSWORD,
+      keyPassword: process.env.EXPO_ANDROID_KEY_PASSWORD,
+      uploadKeystore: false,
     };
-    
+
     const credentials: AndroidCredentials = {
       ...creds,
       keystore: (await fs.readFile(creds.keystorePath)).toString('base64'),
     };
     await Credentials.updateCredentialsForPlatform('android', credentials, credentialMetadata);
-    
   }
 }
