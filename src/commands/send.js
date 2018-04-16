@@ -12,9 +12,6 @@ async function action(projectDir, options) {
 
   let url = await UrlUtils.constructManifestUrlAsync(projectDir);
 
-  log('You can scan this QR code:\n');
-  urlOpts.printQRCode(url);
-
   log('Your URL is\n\n' + chalk.underline(url) + '\n');
   log.raw(url);
 
@@ -57,6 +54,5 @@ export default program => {
       'Specifies the mobile number or e-mail address to send this URL to'
     )
     .urlOpts()
-    .allowNonInteractive()
     .asyncActionProjectDir(action);
 };

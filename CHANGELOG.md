@@ -10,6 +10,77 @@ For guidelines on how to update this file, visit http://keepachangelog.com/en/0.
 
 ### Removed
 
+## [52.0.3] - 2018-04-13
+
+### Changed
+
+* Fix handling of unrecognized Metro events.
+
+## [52.0.0] - 2018-04-12
+
+### Added
+
+* Errors from building JavaScript bundles are now shown in the console with syntax highlighted code snippets.
+
+### Changed
+
+* Improve the error message for syntax errors in `app.json` or `package.json`.
+* Rename `--projectType` option of `exp init` to `--template`.
+* Make `exp init` faster: download templates from a CDN.
+* Improve validation of the project path in `exp init`.
+* Remove the need to be logged in to use `exp init`.
+* Display descriptions of templates in `exp init`.
+* Fix resolving the project directory: `exp init .` now creates a project in the current working directory.
+
+### Removed
+
+## [51.4.0] - 2018-03-31
+
+* Remove unnecessary validations.
+* Update `@expo/json-file` dependency.
+
+## [51.2.0] - 2018-03-30
+
+### Added
+
+* Added `push:android` commands and support for `android.googleServicesFile` app.json config.
+
+## [50.0.1] - 2018-03-16
+
+### Changed
+
+* Fixed a regression with starting tunnels on Windows.
+* Fixed `exp login` failing in non-interactive mode.
+
+## [50.0.0] - 2018-03-15
+
+### Added
+
+* [#102](https://github.com/expo/exp/pull/102) Add ability to block/wait until standalone build succeeds or fails ([@mglagola](https://github.com/mglagola))
+
+  `exp build:android` and `exp build:ios` now automatically wait until the build has finished – no need to manually poll for the status. To disable waiting, run with `--no-wait`.
+
+* [#103](https://github.com/expo/exp/pull/103) Add `exp url:apk` and `exp url:ipa` commands for looking up Android and iOS binary URLs after building a standalone app. ([@mglagola](https://github.com/mglagola))
+
+* Add `--max-workers [num]` option to `exp publish`.
+
+  You can use this to limit the number of workers Metro uses when building the app, e.g. if you're running `exp publish` on a CI server that has a smaller number of CPUs available than reported by the operating system.
+
+* [#96](https://github.com/expo/exp/pull/96) Add release channel to the output of `exp publish` ([@dozoisch](https://github.com/dozoisch))
+* [#100](https://github.com/expo/exp/pull/100) Add timestamps to log output. ([@wKovacs64](https://github.com/wKovacs64))
+
+### Changed
+
+* `--non-interactive` option is now automatically enabled for all commands, if stdout is not a terminal. (E.g. on a continuous integration server.)
+* `exp url` now aborts, if the `exp` server is not running, instead of returning an incorrect URL.
+* `exp detach` command now prompts for iOS `bundleIdentifier` and Android `package` unless found in `app.json`.
+* Fix `exp build:ios` failing when installation path has a space in it.
+
+### Removed
+
+* [#97](https://github.com/expo/exp/pull/97) Remove alias `-c` for `--release-channel` from `exp build` commands, because it conflicted with the alias for `--clear`. ([@dozoisch](https://github.com/dozoisch))
+* `exp login --github` is temporarily disabled, while we migrate to the new authentication system. Please use username and password to login for now.
+
 ## [49.2.0] - 2018-02-04
 
 * Expose `--revoke-apple-certs` and `--revoke-apple-provisioning-profile` for `build:ios`

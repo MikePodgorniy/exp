@@ -11,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import simpleSpinner from '@expo/simple-spinner';
 import url from 'url';
+import { codeFrameColumns } from '@babel/code-frame';
 
 import program, { Command } from 'commander';
 import {
@@ -31,6 +32,7 @@ import log from './log';
 import update from './update';
 import urlOpts from './urlOpts';
 import addCommonOptions from './commonOptions';
+import packageJSON from '../package.json';
 
 if (process.env.NODE_ENV === 'development') {
   require('source-map-support').install();
@@ -45,11 +47,6 @@ Command.prototype.urlOpts = function() {
 
 Command.prototype.allowOffline = function() {
   this.option('--offline', 'Allows this command to run while offline');
-  return this;
-};
-
-Command.prototype.allowNonInteractive = function() {
-  this.option('--non-interactive', 'Fails if an interactive prompt would be required to continue.');
   return this;
 };
 
@@ -101,7 +98,7 @@ Command.prototype.asyncAction = function(asyncFn, skipUpdateCheck) {
 
 // asyncActionProjectDir captures the projectDirectory from the command line,
 // setting it to cwd if it is not provided.
-// Commands such as `exp start` and `exp publish` use this.
+// Commands such as `start` and `publish` use this.
 // It does several things:
 // - Everything in asyncAction
 // - Checks if the user is logged in or out
@@ -111,12 +108,8 @@ Command.prototype.asyncAction = function(asyncFn, skipUpdateCheck) {
 // - Runs AsyncAction with the projectDir as an argument
 Command.prototype.asyncActionProjectDir = function(asyncFn, skipProjectValidation, skipAuthCheck) {
   return this.asyncAction(async (projectDir, ...args) => {
-    try {
-      await checkForUpdateAsync();
-    } catch (e) {}
-
     const opts = args[0];
-    if (!skipAuthCheck && !opts.nonInteractive && !opts.offline) {
+    if (!skipAuthCheck && !opts.parent.nonInteractive && !opts.offline) {
       await loginOrRegisterIfLoggedOut();
     }
 
@@ -139,8 +132,12 @@ Command.prototype.asyncActionProjectDir = function(asyncFn, skipProjectValidatio
     }
 
     const logLines = (msg, logFn) => {
-      for (let line of msg.split('\n')) {
-        logFn(line);
+      if (typeof msg === 'string') {
+        for (let line of msg.split('\n')) {
+          logFn(line);
+        }
+      } else {
+        logFn(msg);
       }
     };
 
@@ -263,6 +260,16 @@ Command.prototype.asyncActionProjectDir = function(asyncFn, skipProjectValidatio
           logWithLevel(newLogChunk);
         });
       },
+      getSnippetForError: error => {
+        if (!error.filename || !error.lineNumber || !error.column) {
+          return null;
+        }
+        let rawLines = fs.readFileSync(error.filename, 'utf8');
+        let location = { start: { line: error.lineNumber, column: error.column + 1 } };
+        return codeFrameColumns(rawLines, location, {
+          highlightCode: true,
+        });
+      },
     });
 
     // needed for validation logging to function
@@ -283,7 +290,7 @@ Command.prototype.asyncActionProjectDir = function(asyncFn, skipProjectValidatio
     //
     // If the packager/manifest server is running and healthy, there is no need
     // to rerun Doctor because the directory was already checked previously
-    // This is relevant for command such as `exp send`
+    // This is relevant for command such as `send`
     if (!skipProjectValidation && (await Project.currentStatus(projectDir)) !== 'running') {
       log('Making sure project is set up correctly...');
       simpleSpinner.start();
@@ -301,14 +308,14 @@ Command.prototype.asyncActionProjectDir = function(asyncFn, skipProjectValidatio
     // will be undefined in most cases. we can explicitly pass a truthy value here to avoid validation (eg for init)
 
     return asyncFn(projectDir, ...args);
-  }, true);
+  });
 };
 
-function runAsync() {
+function runAsync(programName) {
   try {
     // Setup analytics
     Analytics.setSegmentNodeKey('vGu92cdmVaggGA26s3lBX6Y5fILm8SQ7');
-    Analytics.setVersionName(require('../package.json').version);
+    Analytics.setVersionName(packageJSON.version);
     _registerLogs();
 
     if (process.env.SERVER_URL) {
@@ -321,18 +328,24 @@ function runAsync() {
       Config.api.port = parsedUrl.port;
     }
 
-    Config.developerTool = 'exp';
+    Config.developerTool = packageJSON.name;
 
     // Setup our commander instance
-    program.name = 'exp';
+    program.name = programName;
     program
-      .version(require('../package.json').version)
-      .option('-o, --output [format]', 'Output format. pretty (default), raw');
+      .version(packageJSON.version)
+      .option('-o, --output [format]', 'Output format. pretty (default), raw')
+      .option(
+        '--non-interactive',
+        'Fail, if an interactive prompt would be required to continue. Enabled by default if stdin is not a TTY.'
+      );
 
     // Load each module found in ./commands by 'registering' it with our commander instance
     const files = _.uniqBy(
       [
-        ...glob.sync('exp_commands/*.js', { cwd: __dirname }),
+        ...(programName === 'exp'
+          ? glob.sync('exp_commands/*.js', { cwd: __dirname })
+          : glob.sync('expo_commands/*.js', { cwd: __dirname })),
         ...glob.sync('commands/*.js', { cwd: __dirname }),
       ],
       path.basename
@@ -358,11 +371,29 @@ function runAsync() {
         });
     }
 
-    // Commander will now parse argv/argc
-    program.parse(process.argv);
+    let subCommand = process.argv[2];
+    let argv = process.argv.filter(arg => {
+      // Remove deprecated `--github` option here in order to fallback to password login/signup.
+      if (subCommand === 'login' && arg === '--github') {
+        log.nestedWarn(
+          'GitHub login is not currently available.\nPlease log in with your Expo account.'
+        );
+        return false;
+      }
+      if (subCommand === 'register' && arg === '--github') {
+        log.nestedWarn('GitHub sign up is not currently available.');
+        return false;
+      }
+      return true;
+    });
+    program.parse(argv);
+
+    if (typeof program.nonInteractive === 'undefined') {
+      // Commander doesn't initialize boolean args with default values.
+      program.nonInteractive = !process.stdin.isTTY;
+    }
 
     // Display a message if the user does not input a valid command
-    let subCommand = process.argv[2];
     if (subCommand) {
       let commands = [];
       program.commands.forEach(command => {
@@ -374,7 +405,7 @@ function runAsync() {
       });
       if (!_.includes(commands, subCommand)) {
         console.log(
-          `"${subCommand}" is not an exp command. See "exp --help" for the full list of commands.`
+          `"${subCommand}" is not an ${programName} command. See "${programName} --help" for the full list of commands.`
         );
       }
     } else {
@@ -387,25 +418,22 @@ function runAsync() {
 }
 
 async function checkForUpdateAsync() {
-  let { state, current, latest } = await update.checkForExpUpdateAsync();
+  let { state, current, latest } = await update.checkForUpdateAsync();
   let message;
   switch (state) {
     case 'up-to-date':
       break;
 
     case 'out-of-date':
-      message = `There is a new version of exp available (${latest}).
-You are currently using exp ${current}
-Run \`npm install -g exp\` to get the latest version`;
+      message = `There is a new version of ${packageJSON.name} available (${latest}).
+You are currently using ${packageJSON.name} ${current}
+Run \`npm install -g ${packageJSON.name}\` to get the latest version`;
       log.error(chalk.green(message));
       break;
 
     case 'ahead-of-published':
       // if the user is ahead of npm, we're going to assume they know what they're doing
       break;
-
-    default:
-      log.error('Confused about what version of exp you have?');
   }
 }
 
@@ -453,9 +481,9 @@ async function writePathAsync() {
 }
 
 // This is the entry point of the CLI
-export function run() {
+export function run(programName) {
   (async function() {
-    await Promise.all([writePathAsync(), runAsync()]);
+    await Promise.all([writePathAsync(), runAsync(programName)]);
   })().catch(e => {
     console.error('Uncaught Error', e);
     process.exit(1);

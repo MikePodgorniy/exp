@@ -2,7 +2,7 @@
  * @flow
  */
 
-import { ProjectUtils, Project } from 'xdl';
+import { ProjectUtils, ProjectSettings, Project } from 'xdl';
 
 import chalk from 'chalk';
 import path from 'path';
@@ -11,6 +11,7 @@ import log from '../log';
 import sendTo from '../sendTo';
 import { installExitHooks } from '../exit';
 import urlOpts from '../urlOpts';
+import printRunInstructionsAsync from '../printRunInstructionsAsync';
 
 async function action(projectDir, options) {
   const projectState = await Project.currentStatus(projectDir);
@@ -43,23 +44,29 @@ async function action(projectDir, options) {
   await Project.startAsync(root, startOpts);
 
   log('Expo is ready.');
+  log.newLine();
 
   let { url, isUrlFallback } = await Project.getManifestUrlWithFallbackAsync(projectDir);
 
   let { exp } = await ProjectUtils.readConfigJsonAsync(projectDir);
 
   if (!exp.isDetached) {
-    log('You can scan this QR code:');
-    log.newLine();
     urlOpts.printQRCode(url);
   }
 
   log('Your URL is: ' + chalk.underline(url));
+
+  if (!exp.isDetached) {
+    await printRunInstructionsAsync();
+  }
+
   if (isUrlFallback) {
+    await ProjectSettings.setAsync(projectDir, { hostType: 'lan' });
+
     log.warn(
       'Switched to a LAN URL because the tunnel appears to be down. ' +
         'Only devices in the same network can access the app. ' +
-        'Restart with `exp start` to try reconnecting.'
+        'Restart with `exp start --tunnel` to try reconnecting.'
     );
   }
 
@@ -83,7 +90,6 @@ export default (program: any) => {
     // TODO(anp) set a default for this dynamically based on whether we're inside a container?
     .option('--max-workers [num]', 'Maximum number of tasks to allow Metro to spawn.')
     .urlOpts()
-    .allowNonInteractive()
     .allowOffline()
     .asyncActionProjectDir(action, true);
 };

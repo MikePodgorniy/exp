@@ -30,7 +30,7 @@ export async function action(projectDir: string, options: Options = {}) {
 
   let startedOurOwn = false;
   if (status !== 'running') {
-    log('Unable to find an existing exp instance for this directory, starting a new one...');
+    log(`Unable to find an existing ${options.parent.name} instance for this directory, starting a new one...`);
     installExitHooks(projectDir);
 
     const startOpts = { reset: options.clear, nonPersistent: true };
@@ -100,6 +100,5 @@ export default (program: any) => {
       "The release channel to publish to. Default is 'default'.",
       'default'
     )
-    .allowNonInteractive()
     .asyncActionProjectDir(action, true);
 };
